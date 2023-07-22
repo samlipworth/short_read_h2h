@@ -1,0 +1,69 @@
+---
+title: "Short read Head 2 Head"
+author: "Sam Lipworth"
+date: "2023-07-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, include=FALSE}
+library(tidyverse)
+```
+
+
+## Introduction
+
+The purpose of this work is to compare Illumina data from the Oxford Genomics Centre (OGC) to that from two external providers (Novogene and Baseclear).
+
+## Dataset and pre-processing
+
+Ten E. coli isolates were sequenced by all three companies. Please note that I have subsampled to 50X maximum coverage to account for the fact that the total output by all three was different (and often very excessive).
+
+## Basic stats
+
+First let's compare basic quality metrics (%Q30 and %Q20 reads assessed using Seqkit stats). Overall Novogene seems to be the winner, OGC and Baseclear are very similar. Not that much in it though.
+```{r seqkit, echo=FALSE, warning=FALSE, message=FALSE}
+ogc<-read_tsv('./ogc_stats')
+ogc$provider<-"ogc"
+novogene<-read_tsv('./novogene_stats')
+novogene$provider<-"novogene"
+baseclear<-read_tsv('baseclear_stats')
+baseclear$provider<-"baseclear"
+
+stats<-rbind(ogc,novogene,baseclear)
+stats$file<-str_replace_all(stats$file,'_.*','')
+
+stats <- stats %>% group_by(file,provider) %>% 
+  summarise(q30 = mean(`Q30(%)`), q20 = mean(`Q20(%)`))
+
+ggplot(stats) +
+  aes(provider, y=q30) +
+   geom_boxplot() + geom_jitter() +
+  theme_minimal()
+
+ggplot(stats) +
+  aes(x=file,y=q30, color=provider,group=provider) +
+  geom_point() + theme_minimal()+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + geom_line() +
+  scale_color_brewer(palette = "Dark2")
+
+
+ggplot(stats) +
+  aes(x=file, y=q20, color=provider, group=provider) +
+  geom_point() + geom_line() +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  scale_color_brewer(palette = "Dark2")
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
