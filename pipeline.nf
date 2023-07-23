@@ -25,7 +25,7 @@ process Rasusa {
     """
 }
 
-rasusa_ch.into { rasusa_ch1; rasusa_ch2 }
+rasusa_ch.into { rasusa_ch1; rasusa_ch2; rasusa_ch3 }
 
 process SeqkitStats {
     publishDir "${params.output_folder}/seqkitStats", mode: 'copy'
@@ -54,6 +54,22 @@ process Shovill {
     script:
     """
     module load GSL/2.6-GCC-8.3.0
-    shovill --outdir ${sample_id}_assembly --R1 ${reads[0]} --R2 ${reads[1]}
+    shovill --outdir ${sample_id}_assembly --R1 ${reads[0]} --R2 ${reads[1]} --cpus 4
+    """
+}
+
+process Skesa {
+    publishDir "${params.output_folder}/skesa", mode: 'copy'
+
+    input:
+    set val(sample_id), file(reads) from rasusa_ch3
+
+    output:
+    file("${sample_id}.skesa.fa") into skesa_ch
+
+    script:
+    """
+    
+    skesa  --reads ${reads[0]},${reads[1]} --cores 4 > ${sample_id}.skesa.fa
     """
 }

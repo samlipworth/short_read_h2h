@@ -18,13 +18,28 @@ library(tidyverse)
 
 The purpose of this work is to compare Illumina data from the Oxford Genomics Centre (OGC) to that from two external providers (Novogene and Baseclear).
 
-## Dataset and pre-processing
+## Dataset and methods
 
-Ten E. coli isolates were sequenced by all three companies. Please note that I have subsampled to 50X maximum coverage to account for the fact that the total output by all three was different (and often very excessive).
+Ten E. coli isolates were sequenced by all three companies.
 
-## Basic stats
+Please note that I have subsampled to 50X maximum coverage to account for the fact that the total output by all three was different (and often very excessive).
 
-First let's compare basic quality metrics (%Q30 and %Q20 reads assessed using Seqkit stats). Overall Novogene seems to be the winner, OGC and Baseclear are very similar. Not that much in it though.
+I have then assembled using Shovill (Spades) and Skesa performing two independent assemblies with each assembler. There are therefore 10x2x3x2 = 120 assenblies in total.
+
+All assemblers where run on default settings.
+
+## Analysis plan
+
+1. Basic QC stats on reads
+2. Assembly metrics
+3. Assembly comparison between providers
+4. Assembly comparison between assembly methods
+
+## Basic QC stats on reads
+
+First let's compare basic quality metrics (%Q30 and %Q20 reads assessed using Seqkit stats). 
+
+
 ```{r seqkit, echo=FALSE, warning=FALSE, message=FALSE}
 ogc<-read_tsv('./ogc_stats')
 ogc$provider<-"ogc"
@@ -42,12 +57,17 @@ stats <- stats %>% group_by(file,provider) %>%
 ggplot(stats) +
   aes(provider, y=q30) +
    geom_boxplot() + geom_jitter() +
-  theme_minimal()
+  theme_minimal() + 
+  ylab('% of Q30 reads') +
+  xlab('Provider')
 
 ggplot(stats) +
   aes(x=file,y=q30, color=provider,group=provider) +
   geom_point() + theme_minimal()+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + geom_line() +
-  scale_color_brewer(palette = "Dark2")
+  scale_color_brewer(palette = "Dark2") +
+  labs(color='Provider') +
+  ylab('% Q30 reads') +
+  xlab('Isolate')
 
 
 ggplot(stats) +
@@ -55,15 +75,117 @@ ggplot(stats) +
   geom_point() + geom_line() +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-  scale_color_brewer(palette = "Dark2")
+  scale_color_brewer(palette = "Dark2") +
+  ylab('% Q20 reads') +
+  xlab('Isolate') +
+  labs(color='Provider')
 ```
 
-## Including Plots
+### Thoughts
+Overall Novogene seems to be the winner, OGC and Baseclear are very similar. Not that much in it though.
 
-You can also embed plots, for example:
+## Assembly comparison between providers
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+###SNPs
+
+```{r between providers SNPs, echo=FALSE, warning=FALSE, message=FALSE}
+
+comparison<-read_tsv('./parsed_output.tsv',col_names = c('isolate1','provider1','assembler1','isolate2','provider2','assembler2','kill','gIndels','gSNPs'))
+comparison<-select(comparison,-kill)
+
+comparison$assembler1 <- gsub("\\d", "", comparison$assembler1)
+comparison$assembler2 <- gsub("\\d", "", comparison$assembler2)
+comparison$provider1 <- gsub("\\d", "", comparison$provider1)
+comparison$provider2 <- gsub("\\d", "", comparison$provider2)
+
+comparison<-filter(comparison,isolate1 == isolate2)
+comparison$which<-ifelse(comparison$provider1 ==comparison$provider2,'within provider','between provider')
+
+ggplot(comparison) +
+  aes(x=which,y=gSNPs) +
+  geom_violin() + geom_jitter() 
+
+comparison %>% group_by(which) %>% 
+  summarise(median=median(gSNPs), q1=quantile(gSNPs,probs=c(0.25)),q3=quantile(gSNPs,probs=c(0.75)))
+
+kruskal.test(comparison$gSNPs ~ comparison$which)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+### Indels
+
+```{r between providers Indels, echo=FALSE, warning=FALSE, message=FALSE}
+
+comparison<-read_tsv('./parsed_output.tsv',col_names = c('isolate1','provider1','assembler1','isolate2','provider2','assembler2','kill','gIndels','gSNPs'))
+comparison<-select(comparison,-kill)
+
+comparison$assembler1 <- gsub("\\d", "", comparison$assembler1)
+comparison$assembler2 <- gsub("\\d", "", comparison$assembler2)
+comparison$provider1 <- gsub("\\d", "", comparison$provider1)
+comparison$provider2 <- gsub("\\d", "", comparison$provider2)
+
+comparison<-filter(comparison,isolate1 == isolate2)
+comparison$which<-ifelse(comparison$provider1 ==comparison$provider2,'within provider','between provider')
+
+ggplot(comparison) +
+  aes(x=which,y=gIndels) +
+  geom_violin() + geom_jitter()
+
+comparison %>% group_by(which) %>% 
+  summarise(median=median(gIndels), q1=quantile(gIndels,probs=c(0.25)),q3=quantile(gIndels,probs=c(0.75)))
+
+kruskal.test(comparison$gIndels ~ comparison$which)
+```
+
+
+```{r breakdown by provider, echo=FALSE, warning=FALSE, message=FALSE}
+
+ogc<-filter(comparison,provider1=="ogc" | provider2=="ogc")
+ogc$provider<-"ogc"
+novogene<-filter(comparison,provider1=="novogene" | provider2 =="novogene")
+novogene$provider<-"novogene"
+baseclear<-filter(comparison,provider1=="baseclear" | provider2 == "baseclear")
+baseclear$provider<-"baseclear"
+
+all_providers<-rbind(ogc,novogene,baseclear)
+
+ggplot(all_providers) +
+  aes(x=which,y=gSNPs) +
+  geom_violin() + geom_jitter() +
+  theme_minimal() +
+  facet_wrap(~provider)
+
+all_providers %>% 
+  filter(which=='between provider') %>% 
+  group_by(provider) %>% 
+  summarise(median=median(gSNPs),q1=quantile(gSNPs,probs=c(0.25)), q3=quantile(gSNPs,probs=c(0.75)))
+```
+
+
+### Consider OGC as the "Truth"
+
+The problem with this dataset is that we don't know what the truth is (there are no available reference assemblies.) But we know that we trust OGC data, so lets directly compare the two new external providers to this data.
+
+```{r OGC as truth, echo=TRUE, warning=FALSE, message=FALSE}
+
+ogc_comparison<-filter(comparison, provider1=='ogc'| provider2=='ogc')
+ogc_comparison<-filter(ogc_comparison, !provider1==provider2)
+
+baseclear_ogc_comparison <-filter(ogc_comparison,provider1=='baseclear' | provider2=='baseclear')
+baseclear_ogc_comparison$Qscore<- -10 * log10(baseclear_ogc_comparison$gSNPs/5e6)
+median(baseclear_ogc_comparison$Qscore)
+
+novogene_ogc_comparison <-filter(ogc_comparison,provider1=='novogene' | provider2=='novogene')
+novogene_ogc_comparison$Qscore<- -10 * log10(novogene_ogc_comparison$gSNPs/5e6)
+median(novogene_ogc_comparison$Qscore)
+
+ogc_ogc_comparison<-filter(comparison, provider1=='ogc'& provider2=='ogc')
+ogc_ogc_comparison$Qscore<- -10 * log10(ogc_ogc_comparison$gSNPs/5e6)
+median(ogc_ogc_comparison$Qscore)
+```
+
+So if OGC is the truth, the Q score of Baseclear data is 51 and of Novogene data is 52. The median Q score of OGC data with itself (when considering different independent assemblies/assemblers) is 54.  
+
+### Conclusion
+
+I think the conclusion is that Novogene data seems to be the highest quality but this is very marginal and all providers produce high quality and comparable data.
