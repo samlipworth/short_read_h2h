@@ -28,6 +28,9 @@ I have then assembled using Shovill (Spades) and Skesa performing two independen
 
 All assemblers where run on default settings.
 
+SNPs/Indels are calculated using pairwise comparisons with DNADiff.
+
+
 ## Analysis plan
 
 1. Basic QC stats on reads
