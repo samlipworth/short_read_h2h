@@ -1,0 +1,2 @@
+2023-07-22 12:35:19	-	sharp_lamarr	-	7bab0563ceb493c7912ce9c1b48793d9	54b89eea-0513-4f3d-8c8d-a8b9877b6dde	nextflow run compare.nf -profile slurm
+2023-07-22 12:36:54	20m 47s	loving_swirles	OK	7bab0563ceb493c7912ce9c1b48793d9	535d6a93-8a18-4ae2-8c88-3cc8877f129b	nextflow run compare.nf -profile slurm

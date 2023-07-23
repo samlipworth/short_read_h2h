@@ -24,16 +24,16 @@ Ten E. coli isolates were sequenced by all three companies.
 
 Please note that I have subsampled to 50X maximum coverage to account for the fact that the total output by all three was different (and often very excessive).
 
-I have then assembled using Shovill (Spades) and Skesa performing two independent assemblies with each assembler. There are therefore 10x2x3x2 = 120 assenblies in total.
+I have then assembled using Shovill (Spades) and Skesa performing two independent assemblies with each assembler. There are therefore 10x2x3x2 = 120 assemblies in total.
 
 All assemblers where run on default settings.
 
 ## Analysis plan
 
 1. Basic QC stats on reads
-2. Assembly metrics
-3. Assembly comparison between providers
-4. Assembly comparison between assembly methods
+2. Comparison based on whole assembly metrics (N50/lenght/N contigs)
+3. Assembly comparison between providers (SNPs/Indels)
+
 
 ## Basic QC stats on reads
 
@@ -58,7 +58,7 @@ ggplot(stats) +
   aes(provider, y=q30) +
    geom_boxplot() + geom_jitter() +
   theme_minimal() + 
-  ylab('% of Q30 reads') +
+  ylab('% Q30 reads') +
   xlab('Provider')
 
 ggplot(stats) +
@@ -84,6 +84,57 @@ ggplot(stats) +
 ### Thoughts
 Overall Novogene seems to be the winner, OGC and Baseclear are very similar. Not that much in it though.
 
+## Assembly stats
+
+Finally let's look at assembly statistics
+
+```{r assembly stats, echo=FALSE, warning=FALSE, message=FALSE}
+
+assembly_stats<-read_tsv('./assembly_stats.tsv')
+assembly_stats$provider<-gsub("\\d", "", assembly_stats$provider)
+
+labels <- seq_along(assembly_stats$provider)
+
+
+ggplot(assembly_stats) +
+  aes(x=file,y=sum_len,color=provider) +
+  geom_jitter() + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  facet_wrap(~assembler)  +
+  xlab("Isolate") +
+  ylab("Total assembly length") +
+  scale_x_discrete(labels = labels) +
+  ggtitle("Assembly length")
+
+
+ggplot(assembly_stats) +
+  aes(x=file,y=N50,color=provider) +
+  geom_jitter() + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  facet_wrap(~assembler)  +
+  xlab("Isolate") +
+  ylab("N50") +
+  scale_x_discrete(labels = labels) +
+  ggtitle("N50")
+
+ggplot(assembly_stats) +
+  aes(x=file,y=num_seqs,color=provider) +
+  geom_jitter() + theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  facet_wrap(~assembler)  +
+  xlab("Isolate") +
+  ylab("Number of contigs") +
+  scale_x_discrete(labels = labels) +
+  ggtitle("N contigs")
+
+
+```
+
+### Thoughts
+
+Baseclear assemblies seem to be a bit worse, OGC and novogene very similar.
+
+
 ## Assembly comparison between providers
 
 ###SNPs
@@ -103,7 +154,8 @@ comparison$which<-ifelse(comparison$provider1 ==comparison$provider2,'within pro
 
 ggplot(comparison) +
   aes(x=which,y=gSNPs) +
-  geom_violin() + geom_jitter() 
+  geom_violin() + geom_jitter() +
+  theme_minimal()
 
 comparison %>% group_by(which) %>% 
   summarise(median=median(gSNPs), q1=quantile(gSNPs,probs=c(0.25)),q3=quantile(gSNPs,probs=c(0.75)))
@@ -184,8 +236,9 @@ ogc_ogc_comparison$Qscore<- -10 * log10(ogc_ogc_comparison$gSNPs/5e6)
 median(ogc_ogc_comparison$Qscore)
 ```
 
-So if OGC is the truth, the Q score of Baseclear data is 51 and of Novogene data is 52. The median Q score of OGC data with itself (when considering different independent assemblies/assemblers) is 54.  
+So if OGC is the truth, the Q score of Baseclear data is 51 and of Novogene data is 52. The median Q score of OGC data with itself (when considering different independent assemblies/assemblers) is 54.
 
-### Conclusion
 
-I think the conclusion is that Novogene data seems to be the highest quality but this is very marginal and all providers produce high quality and comparable data.
+## Conclusion
+
+I think the conclusion is that Novogene data seems to be the highest quality and Baseclear the lowest but this is pretty marginal and all providers produce high quality and comparable data.
