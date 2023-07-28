@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r libraries, include=FALSE}
 library(tidyverse)
+library(patchwork)
 ```
 
 
@@ -160,6 +161,28 @@ ggplot(comparison) +
   geom_violin() + geom_jitter() +
   theme_minimal()
 
+ncomparison<-filter(comparison,assembler1==assembler2)
+
+ncomparison <- ncomparison %>%
+  mutate(comparison = paste(pmin(provider1, provider2), 
+                            "vs", 
+                            pmax(provider1, provider2)))
+
+
+skesa<-ggplot(filter(ncomparison,assembler1=='skesa')) +
+  aes(x=1,y=gSNPs) +
+  geom_violin() +geom_jitter() +
+  facet_wrap(~comparison) + theme_minimal() +
+  theme(axis.text.x = element_blank()) + ggtitle('Skesa')
+
+shovill<-ggplot(filter(ncomparison,assembler1=='shovill')) +
+  aes(x=1,y=gSNPs) +
+  geom_violin() +geom_jitter() +
+  facet_wrap(~comparison) + theme_minimal() +
+  theme(axis.text.x = element_blank()) + ggtitle('Shovill')
+
+skesa + shovill + plot_annotation(title = "Pairwise comparison stratified by assembler")
+
 comparison %>% group_by(which) %>% 
   summarise(median=median(gSNPs), q1=quantile(gSNPs,probs=c(0.25)),q3=quantile(gSNPs,probs=c(0.75)))
 
@@ -186,11 +209,13 @@ ggplot(comparison) +
   aes(x=which,y=gIndels) +
   geom_violin() + geom_jitter()
 
+
 comparison %>% group_by(which) %>% 
   summarise(median=median(gIndels), q1=quantile(gIndels,probs=c(0.25)),q3=quantile(gIndels,probs=c(0.75)))
 
 kruskal.test(comparison$gIndels ~ comparison$which)
 ```
+
 
 
 ```{r breakdown by provider, echo=FALSE, warning=FALSE, message=FALSE}
