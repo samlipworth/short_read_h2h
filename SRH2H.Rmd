@@ -17,13 +17,13 @@ library(patchwork)
 
 ## Introduction
 
-The purpose of this work is to compare Illumina data from the Oxford Genomics Centre (OGC) to that from two external providers (Novogene and Baseclear).
+The purpose of this work is to compare Illumina data from the Oxford Genomics Centre (OGC) to that from two external providers (ProviderX and Baseclear).
 
 ## Dataset and methods
 
 Ten E. coli isolates were sequenced by all three companies.
 
-Please note that I have subsampled to 50X maximum coverage to account for the fact that the total output by all three was different (and often very excessive).
+Please note that I have subsampled to 100X maximum coverage to account for the fact that the total output by all three was different (and often very excessive).
 
 I have then assembled using Shovill (Spades) and Skesa performing two independent assemblies with each assembler. There are therefore 10x2x3x2 = 120 assemblies in total.
 
@@ -47,13 +47,15 @@ First let's compare basic quality metrics (%Q30 and %Q20 reads assessed using Se
 ```{r seqkit, echo=FALSE, warning=FALSE, message=FALSE}
 ogc<-read_tsv('./ogc_stats')
 ogc$provider<-"ogc"
-novogene<-read_tsv('./novogene_stats')
-novogene$provider<-"novogene"
+providerX<-read_tsv('./providerX_stats')
+providerX$provider<-"providerX"
 baseclear<-read_tsv('baseclear_stats')
 baseclear$provider<-"baseclear"
 
-stats<-rbind(ogc,novogene,baseclear)
+stats<-rbind(ogc,providerX,baseclear)
 stats$file<-str_replace_all(stats$file,'_.*','')
+
+stats
 
 stats <- stats %>% group_by(file,provider) %>% 
   summarise(q30 = mean(`Q30(%)`), q20 = mean(`Q20(%)`))
@@ -86,7 +88,7 @@ ggplot(stats) +
 ```
 
 ### Thoughts
-Overall Novogene seems to be the winner, OGC and Baseclear are very similar. Not that much in it though.
+Overall providerX seems to be the winner, OGC and Baseclear are very similar. Not that much in it though.
 
 ## Assembly stats
 
@@ -94,10 +96,11 @@ Finally let's look at assembly statistics
 
 ```{r assembly stats, echo=FALSE, warning=FALSE, message=FALSE}
 
-assembly_stats<-read_tsv('./assembly_stats.tsv')
-assembly_stats$provider<-gsub("\\d", "", assembly_stats$provider)
+assembly_stats<-read_tsv('./h_stats.tsv')
 
 labels <- seq_along(assembly_stats$provider)
+
+
 
 
 ggplot(assembly_stats) +
@@ -134,9 +137,11 @@ ggplot(assembly_stats) +
 
 ```
 
+
+
 ### Thoughts
 
-Baseclear assemblies seem to be a bit worse, OGC and novogene very similar.
+Baseclear assemblies seem to be a bit worse, OGC and providerX very similar.
 
 
 ## Assembly comparison between providers
@@ -148,10 +153,7 @@ Baseclear assemblies seem to be a bit worse, OGC and novogene very similar.
 comparison<-read_tsv('./parsed_output.tsv',col_names = c('isolate1','provider1','assembler1','isolate2','provider2','assembler2','kill','gIndels','gSNPs'))
 comparison<-select(comparison,-kill)
 
-comparison$assembler1 <- gsub("\\d", "", comparison$assembler1)
-comparison$assembler2 <- gsub("\\d", "", comparison$assembler2)
-comparison$provider1 <- gsub("\\d", "", comparison$provider1)
-comparison$provider2 <- gsub("\\d", "", comparison$provider2)
+
 
 comparison<-filter(comparison,isolate1 == isolate2)
 comparison$which<-ifelse(comparison$provider1 ==comparison$provider2,'within provider','between provider')
@@ -197,10 +199,7 @@ kruskal.test(comparison$gSNPs ~ comparison$which)
 comparison<-read_tsv('./parsed_output.tsv',col_names = c('isolate1','provider1','assembler1','isolate2','provider2','assembler2','kill','gIndels','gSNPs'))
 comparison<-select(comparison,-kill)
 
-comparison$assembler1 <- gsub("\\d", "", comparison$assembler1)
-comparison$assembler2 <- gsub("\\d", "", comparison$assembler2)
-comparison$provider1 <- gsub("\\d", "", comparison$provider1)
-comparison$provider2 <- gsub("\\d", "", comparison$provider2)
+
 
 comparison<-filter(comparison,isolate1 == isolate2)
 comparison$which<-ifelse(comparison$provider1 ==comparison$provider2,'within provider','between provider')
@@ -222,12 +221,12 @@ kruskal.test(comparison$gIndels ~ comparison$which)
 
 ogc<-filter(comparison,provider1=="ogc" | provider2=="ogc")
 ogc$provider<-"ogc"
-novogene<-filter(comparison,provider1=="novogene" | provider2 =="novogene")
-novogene$provider<-"novogene"
+providerX<-filter(comparison,provider1=="providerX" | provider2 =="providerX")
+providerX$provider<-"providerX"
 baseclear<-filter(comparison,provider1=="baseclear" | provider2 == "baseclear")
 baseclear$provider<-"baseclear"
 
-all_providers<-rbind(ogc,novogene,baseclear)
+all_providers<-rbind(ogc,providerX,baseclear)
 
 ggplot(all_providers) +
   aes(x=which,y=gSNPs) +
@@ -255,18 +254,18 @@ baseclear_ogc_comparison <-filter(ogc_comparison,provider1=='baseclear' | provid
 baseclear_ogc_comparison$Qscore<- -10 * log10(baseclear_ogc_comparison$gSNPs/5e6)
 median(baseclear_ogc_comparison$Qscore)
 
-novogene_ogc_comparison <-filter(ogc_comparison,provider1=='novogene' | provider2=='novogene')
-novogene_ogc_comparison$Qscore<- -10 * log10(novogene_ogc_comparison$gSNPs/5e6)
-median(novogene_ogc_comparison$Qscore)
+providerX_ogc_comparison <-filter(ogc_comparison,provider1=='providerX' | provider2=='providerX')
+providerX_ogc_comparison$Qscore<- -10 * log10(providerX_ogc_comparison$gSNPs/5e6)
+median(providerX_ogc_comparison$Qscore)
 
 ogc_ogc_comparison<-filter(comparison, provider1=='ogc'& provider2=='ogc')
 ogc_ogc_comparison$Qscore<- -10 * log10(ogc_ogc_comparison$gSNPs/5e6)
 median(ogc_ogc_comparison$Qscore)
 ```
 
-So if OGC is the truth, the Q score of Baseclear data is 51 and of Novogene data is 52. The median Q score of OGC data with itself (when considering different independent assemblies/assemblers) is 54.
+So if OGC is the truth, the Q score of Baseclear data is 52 and of providerX data is 53. The median Q score of OGC data with itself (when considering different independent assemblies/assemblers) is 52.
 
 
 ## Conclusion
 
-I think the conclusion is that Novogene data seems to be the highest quality and Baseclear the lowest but this is pretty marginal and all providers produce high quality and comparable data.
+I think the conclusion is that providerX data seems to be the highest quality and Baseclear the lowest but this is pretty marginal and all providers produce high quality and comparable data.
